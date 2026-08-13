@@ -6,4 +6,6 @@ pub enum ErrorCode {
     Overflow,
     #[msg("Borrow amount exceeds maximum allowed")]
     BorrowTooLarge,
+    #[msg("Position is still healthy and cannot be liquidated")]
+    PositionHealthy,
 }
