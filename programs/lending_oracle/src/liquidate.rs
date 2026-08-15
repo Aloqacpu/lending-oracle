@@ -1,1 +1,66 @@
-pub use crate::instructions::liquidate::{liquidate, Liquidate};
+use anchor_lang::prelude::*;
+use crate::errors::ErrorCode;
+use crate::state::{GlobalAccount, UserAccount};
+use pyth_sdk_solana::load_price_feed_from_account_info;
+
+#[derive(Accounts)]
+pub struct Liquidate<'info> {
+    #[account(mut)]
+    pub liquidator: Signer<'info>,
+
+    #[account(mut)]
+    pub owner: SystemAccount<'info>,
+
+    #[account(mut, seeds = [b"user", owner.key().as_ref()], bump)]
+    pub user_account: Account<'info, UserAccount>,
+
+    #[account(mut, seeds = [b"config"], bump)]
+    pub config: Account<'info, GlobalAccount>,
+
+    pub system_program: Program<'info, System>,
+    pub price_feed: AccountInfo<'info>,
+}
+
+pub fn liquidate(ctx: Context<Liquidate>, _amount: u64) -> Result<()> {
+    require_keys_eq!(
+        ctx.accounts.price_feed.key(),
+        ctx.accounts.config.price_feed,
+        ErrorCode::InvalidPriceFeed
+    );
+
+    let user_acc = &mut ctx.accounts.user_account;
+
+    let price_feed = load_price_feed_from_account_info(&ctx.accounts.price_feed)?;
+    let price = price_feed.get_current_price().ok_or(ErrorCode::InvalidPrice)?;
+
+    let sol_price = price.price as i128;
+    let expo = price.expo;
+
+    let normalized_price = if expo < 0 {
+        sol_price
+            .checked_div(10i128.pow(expo.abs() as u32))
+            .ok_or(ErrorCode::Overflow)?
+    } else {
+        sol_price
+            .checked_mul(10i128.pow(expo as u32))
+            .ok_or(ErrorCode::Overflow)?
+    };
+
+    let collateral_value = (user_acc.deposit as i128)
+        .checked_mul(normalized_price)
+        .ok_or(ErrorCode::Overflow)?;
+
+    let max_borrow = collateral_value
+        .checked_mul(ctx.accounts.config.ltv as i128)
+        .and_then(|v| v.checked_div(100))
+        .ok_or(ErrorCode::Overflow)?;
+
+    if user_acc.credit as i128 <= max_borrow {
+        return Err(error!(ErrorCode::PositionHealthy));
+    }
+
+    user_acc.deposit = 0;
+    user_acc.credit = 0;
+
+    Ok(())
+}

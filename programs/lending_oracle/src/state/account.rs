@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-
+use anchor_lang::prelude::Pubkey;
 #[account]
 #[derive(InitSpace)]
 pub struct GlobalAccount {

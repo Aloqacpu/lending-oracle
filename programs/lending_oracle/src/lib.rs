@@ -1,40 +1,65 @@
 pub mod errors;
+pub mod price;
 pub mod state;
 pub mod instructions;
+use anchor_lang::prelude::Pubkey;
 use anchor_lang::prelude::*;
+use crate::instructions::{
+    borrow::Borrow,
+    deposit::Deposit,
+    init::InitAccount,
+    init_config::GlobalInitAccount,
+    liquidate::Liquidate,
+    repay::Repay,
+    withdraw::Withdraw,
+};
 
-declare_id!("3AoFCSHtMUhupmF4wBc9F8pY1J9doiFs2SMkWt5Mrj6y");
+declare_id!("2fLc1vQc4LpYBByhVgBjRThwBxnLU4jwop89YUVZnRTT");
 
+#[cfg(feature = "anchor")]
 #[program]
 pub mod lending_oracle {
     use super::*;
+    use crate::instructions as ins;
 
     pub fn init_config(
-        ctx: Context<crate::instructions::init_config::InitAccount>,
+        ctx: Context<GlobalInitAccount>,
         ltv: u64,
         liquidation: u64,
         price_feed: Pubkey,
     ) -> Result<()> {
-        crate::instructions::init_config::init_config(ctx, ltv, liquidation, price_feed)
+        ins::init_config::init_config(ctx, ltv, liquidation, price_feed)
     }
 
-    pub fn init_user_account(ctx: Context<crate::instructions::init::InitAccount>) -> Result<()> {
-        crate::instructions::init::init_user_account(ctx)
+    pub fn init_user_account(ctx: Context<InitAccount>) -> Result<()> {
+        ins::init::init_user_account(ctx)
     }
 
-    pub fn deposit(ctx: Context<crate::instructions::deposit::Deposit>, amount: u64) -> Result<()> {
-        crate::instructions::deposit::deposit(ctx, amount)
+    pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
+        ins::deposit::deposit(ctx, amount)
     }
 
-    pub fn borrow(ctx: Context<crate::instructions::borrow::Borrow>, amount: u64) -> Result<()> {
-        crate::instructions::borrow::borrow(ctx, amount)
+    pub fn borrow(ctx: Context<Borrow>, amount: u64) -> Result<()> {
+        ins::borrow::borrow(ctx, amount)
     }
 
-    pub fn repay(ctx: Context<crate::instructions::repay::Repay>, amount: u64) -> Result<()> {
-        crate::instructions::repay::repay(ctx, amount)
+    pub fn repay(ctx: Context<Repay>, amount: u64) -> Result<()> {
+        ins::repay::repay(ctx, amount)
     }
 
-    pub fn liquidate(ctx: Context<crate::instructions::liquidate::Liquidate>, amount: u64) -> Result<()> {
-        crate::instructions::liquidate::liquidate(ctx, amount)
+    pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
+        ins::withdraw::withdraw(ctx, amount)
+    }
+
+    pub fn liquidate(ctx: Context<Liquidate>, amount: u64) -> Result<()> {
+        ins::liquidate::liquidate(ctx, amount)
     }
 }
+
+// MAIN IDEA:
+// this file just exposes all instructions and connects them to instruction modules
+// borrow/withdraw/liquidate all use the same logic:
+// 1) validate oracle
+// 2) compute max allowed debt from collateral and price
+// 3) require the condition to pass
+// 4) mutate state / transfer tokens
