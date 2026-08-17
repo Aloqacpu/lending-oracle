@@ -39,14 +39,12 @@ pub fn repay(ctx: Context<Repay>, amount: u64) -> Result<()> {
         authority: ctx.accounts.user.to_account_info(),
     };
 
-    let cpi_ctx = CpiContext::new(
-        ctx.accounts.token_program.key(),
-        cpi_accounts,
-    );
+    let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
 
     token::transfer(cpi_ctx, amount)?;
 
-    ctx.accounts.user_account.credit = ctx.accounts
+    ctx.accounts.user_account.credit = ctx
+        .accounts
         .user_account
         .credit
         .checked_sub(amount)

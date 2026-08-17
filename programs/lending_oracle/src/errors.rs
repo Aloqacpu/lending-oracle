@@ -18,4 +18,7 @@ pub enum ErrorCode {
     InvalidPriceFeed,
     #[msg("Invalid price")]
     InvalidPrice,
+    #[msg("Price feed data is stale")]
+    StalePrice,
+    
 }

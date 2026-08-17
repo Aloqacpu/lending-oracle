@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "programs/*"
+    "programs/lending_oracle"
 ]
 resolver = "2"
 
@@ -8,10 +8,14 @@ resolver = "2"
 edition = "2021"
 rust-version = "1.89.0"
 
+[workspace.metadata.solana]
+tools-version = "1.52"
+
 [profile.release]
 overflow-checks = true
 lto = "fat"
 codegen-units = 1
+
 [profile.release.build-override]
 opt-level = 3
 incremental = false

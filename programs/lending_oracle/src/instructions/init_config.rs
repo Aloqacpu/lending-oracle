@@ -1,22 +1,39 @@
-
-use anchor_lang::prelude::*;
+use crate::errors::ErrorCode as LendingError;
 use crate::state::GlobalAccount;
-
+use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
 pub struct GlobalInitAccount<'info> {
     #[account(mut)]
-    pub admin:Signer<'info>,
-    #[account(init,payer=admin,seeds=[b"config"],bump,space=8+GlobalAccount::INIT_SPACE)]
-    pub config:Account<'info,GlobalAccount>,
-    pub system_program:Program<'info,System>,
+    pub admin: Signer<'info>,
 
+    #[account(
+        init,
+        payer = admin,
+        seeds = [b"config"],
+        bump,
+        space = 8 + GlobalAccount::INIT_SPACE
+    )]
+    pub config: Account<'info, GlobalAccount>,
+
+    pub system_program: Program<'info, System>,
 }
 
-pub fn init_config(ctx: Context<GlobalInitAccount>, ltv: u64, liquidation: u64, price_feed: Pubkey) -> Result<()> {
+pub fn init_config(
+    ctx: Context<GlobalInitAccount>,
+    ltv: u64,
+    liquidation: u64,
+    price_feed: Pubkey,
+) -> Result<()> {
+    require!(
+        ltv > 0 && ltv < liquidation && liquidation <= 100,
+        LendingError::InvalidAmount
+    );
+
     ctx.accounts.config.admin = ctx.accounts.admin.key();
     ctx.accounts.config.ltv = ltv;
     ctx.accounts.config.liquidation = liquidation;
     ctx.accounts.config.price_feed = price_feed;
+
     Ok(())
 }

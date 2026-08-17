@@ -7,7 +7,7 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-lending_oracle = "3AoFCSHtMUhupmF4wBc9F8pY1J9doiFs2SMkWt5Mrj6y"
+lending_oracle = "2fLc1vQc4LpYBByhVgBjRThwBxnLU4jwop89YUVZnRTT"
 
 [provider]
 cluster = "localnet"
