@@ -1,48 +1,54 @@
+use pyth_solana_receiver_sdk::price_update::PriceUpdateV2;
+use crate::{
+    errors::ErrorCode,
+    math::normalize_price,
+};
 use anchor_lang::prelude::*;
-
-pub const MAX_PRICE_AGE_SECONDS: i64 = 60;
 
 #[derive(Clone, Copy, Debug)]
 pub struct PriceInfo {
     pub price: i64,
-    pub expo: i32,
+    pub confidence: u64,
+    pub exponent: i32,
     pub publish_time: i64,
 }
 
-pub fn read_price_info(account: &AccountInfo) -> Result<PriceInfo> {
-    let data = account.data.borrow();
+pub fn read_price_info(
+    price_update: &PriceUpdateV2,
+    feed_id: &[u8; 32],
+    max_age: u64,
+) -> Result<PriceInfo> {
+    let clock = Clock::get()?;
 
-    if data.len() < 20 {
-        return err!(crate::errors::ErrorCode::InvalidPrice);
-    }
+    let price = price_update
+        .get_price_no_older_than(
+            &clock,
+            max_age,
+            feed_id,
+        )
+        .map_err(|_| error!(ErrorCode::StalePrice))?;
 
-    let price = i64::from_le_bytes(
-        data[0..8]
-            .try_into()
-            .map_err(|_| error!(crate::errors::ErrorCode::InvalidPrice))?,
+    require!(
+        price.price > 0,
+        ErrorCode::InvalidPrice
     );
 
-    let expo = i32::from_le_bytes(
-        data[8..12]
-            .try_into()
-            .map_err(|_| error!(crate::errors::ErrorCode::InvalidPrice))?,
+    require!(
+        price.publish_time <= clock.unix_timestamp,
+        ErrorCode::FuturePrice
     );
 
-    let publish_time = i64::from_le_bytes(
-        data[12..20]
-            .try_into()
-            .map_err(|_| error!(crate::errors::ErrorCode::InvalidPrice))?,
-    );
-
-    Ok(PriceInfo { price, expo, publish_time })
+    Ok(PriceInfo {
+        price: price.price,
+        confidence: price.conf,
+        exponent: price.exponent,
+        publish_time: price.publish_time,
+    })
 }
 
-pub fn check_price_fresh(info: &PriceInfo) -> Result<()> {
-    let now = Clock::get()?.unix_timestamp;
-    let age = now.saturating_sub(info.publish_time);
-    require!(
-        age >= 0 && age <= MAX_PRICE_AGE_SECONDS,
-        crate::errors::ErrorCode::StalePrice
-    );
-    Ok(())
+pub fn normalized_price(info: &PriceInfo) -> Result<u128> {
+    Ok(normalize_price(
+        info.price,
+        info.exponent,
+    )?)
 }

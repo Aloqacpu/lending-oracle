@@ -1,5 +1,3 @@
-skip_local_validator = true
-
 [toolchain]
 
 [features]
@@ -7,7 +5,7 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-lending_oracle = "2fLc1vQc4LpYBByhVgBjRThwBxnLU4jwop89YUVZnRTT"
+lending_oracle = "y3PH8jwx6wUBGwdEN7W6GdYZfDTA68ohQsBvNa9jJ9W"
 
 [provider]
 cluster = "localnet"

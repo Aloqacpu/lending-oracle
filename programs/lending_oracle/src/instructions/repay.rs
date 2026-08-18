@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
-
+use crate::risk::require_not_paused;
 use crate::errors::ErrorCode;
 use crate::state::{GlobalAccount, UserAccount};
 
@@ -29,9 +29,12 @@ pub struct Repay<'info> {
 pub fn repay(ctx: Context<Repay>, amount: u64) -> Result<()> {
     require!(amount > 0, ErrorCode::InvalidAmount);
     require!(
-        ctx.accounts.user_account.credit >= amount,
+        ctx.accounts.user_account.debt >= amount,
         ErrorCode::RepayTooLarge
     );
+    require_not_paused(
+        &ctx.accounts.config
+    )?;
 
     let cpi_accounts = Transfer {
         from: ctx.accounts.user_token_account.to_account_info(),
@@ -39,16 +42,17 @@ pub fn repay(ctx: Context<Repay>, amount: u64) -> Result<()> {
         authority: ctx.accounts.user.to_account_info(),
     };
 
-    let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
+    let cpi_program = ctx.accounts.token_program.key();
+    let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
 
     token::transfer(cpi_ctx, amount)?;
 
-    ctx.accounts.user_account.credit = ctx
+    ctx.accounts.user_account.debt = ctx
         .accounts
         .user_account
-        .credit
+        .debt
         .checked_sub(amount)
-        .ok_or(ErrorCode::Overflow)?;
+        .ok_or(ErrorCode::MathOverflow)?;
 
     Ok(())
 }

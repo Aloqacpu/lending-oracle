@@ -21,11 +21,9 @@ idl-build = [
 anchor-debug = []
 custom-heap = []
 custom-panic = []
-
 [dependencies]
-anchor-lang = "=0.31.1"
-anchor-spl = "=0.31.1"
-pyth-solana-receiver-sdk = "=0.6.1"
-
+anchor-lang = "1.0.2"
+anchor-spl = "1.0.2"
+pyth-solana-receiver-sdk = "2.0.0"
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }

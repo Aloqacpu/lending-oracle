@@ -1,35 +1,43 @@
 use crate::{
     errors::ErrorCode,
+    events::ProtocolPauseEvent,
     state::GlobalAccount,
 };
+
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
-pub struct GlobalInitAccount<'info> {
-    #[account(mut)]
-    pub admin: Signer<'info>,
-
+pub struct SetPause<'info> {
     #[account(
-        init,
-        payer = admin,
+        mut,
         seeds = [b"config"],
         bump,
-        space = 8 + GlobalAccount::INIT_SPACE
+        has_one = admin @ ErrorCode::Unauthorized
     )]
     pub config: Account<'info, GlobalAccount>,
 
-    pub system_program: Program<'info, System>,
+    pub admin: Signer<'info>,
 }
 
-pub fn init_config(
-    ctx: Context<GlobalInitAccount>,
+pub fn set_pause(
+    ctx: Context<SetPause>,
+    paused: bool,
+) -> Result<()> {
+    ctx.accounts.config.paused = paused;
+
+    emit!(ProtocolPauseEvent {
+        admin: ctx.accounts.admin.key(),
+        paused,
+    });
+
+    Ok(())
+}
+
+pub fn set_risk_parameters(
+    ctx: Context<SetPause>,
     ltv_bps: u64,
     liquidation_threshold_bps: u64,
     liquidation_bonus_bps: u64,
-    price_update: Pubkey,
-    price_feed_id: [u8; 32],
-    max_price_age: u64,
-    max_confidence_bps: u64,
 ) -> Result<()> {
     require!(
         ltv_bps > 0
@@ -43,28 +51,18 @@ pub fn init_config(
         ErrorCode::InvalidLiquidationBonus
     );
 
-    require!(
-        max_price_age > 0,
-        ErrorCode::InvalidAmount
-    );
-
-    require!(
-        max_confidence_bps <= 10_000,
-        ErrorCode::InvalidAmount
-    );
-
     let config = &mut ctx.accounts.config;
-
-    config.admin = ctx.accounts.admin.key();
-    config.price_update = price_update;
-    config.price_feed_id = price_feed_id;
 
     config.ltv_bps = ltv_bps;
     config.liquidation_threshold_bps = liquidation_threshold_bps;
     config.liquidation_bonus_bps = liquidation_bonus_bps;
 
-    config.max_price_age = max_price_age;
-    config.max_confidence_bps = max_confidence_bps;
+    emit!(crate::events::RiskParametersUpdatedEvent {
+        admin: ctx.accounts.admin.key(),
+        ltv_bps,
+        liquidation_threshold_bps,
+        liquidation_bonus_bps,
+    });
 
     Ok(())
 }
